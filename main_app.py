@@ -114,25 +114,6 @@ def collect_charts_for_pdf():
     print(f"✅ 총 {len(charts)}개 차트 수집 완료")
     return charts
 
-def check_kaleido_status():
-    """kaleido 의존성 체크 (디버그용)"""
-    try:
-        import kaleido
-        import plotly.io as pio
-        import plotly.graph_objects as go
-        
-        # 테스트 차트 생성해서 변환 가능한지 체크
-        fig = go.Figure(data=go.Bar(x=[1, 2, 3], y=[1, 2, 3]))
-        img_bytes = pio.to_image(fig, format='png', width=100, height=100)
-        
-        if len(img_bytes) > 0:
-            return True, "✅ kaleido 의존성 체크 완료!"
-        else:
-            return False, "❌ kaleido 이미지 변환 실패"
-            
-    except Exception as e:
-        return False, f"❌ kaleido 의존성 오류: {e}"
-        
 def sort_quarterly_by_quarter(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
     # '2024Q1' → (연도=2024, 분기=1) 추출해 정렬키 생성
@@ -145,20 +126,7 @@ def sort_quarterly_by_quarter(df: pd.DataFrame) -> pd.DataFrame:
 def main():
     initialize_session_state()
     st.title("⚡ SK에너지 경쟁사 분석 대시보드")
-    
-    # 사이드바에 시스템 체크 기능 추가
-    with st.sidebar:
-        st.markdown("---")
-        st.subheader("🔧 시스템 상태")
-        if st.button("📊 kaleido 상태 확인"):
-            with st.spinner("시스템 의존성 체크 중..."):
-                status, message = check_kaleido_status()
-                if status:
-                    st.success(message)
-                else:
-                    st.error(message)
-                    st.info("💡 해결방법: packages.txt와 requirements.txt를 확인하세요")
-    
+
     tabs = st.tabs(["📈 재무분석", "📁 수동 파일 업로드", "📰 뉴스분석", "🧠 통합 인사이트", "📄 보고서 생성"])
     
     with tabs[0]: # 재무분석 탭
