@@ -56,6 +56,16 @@ class FinancialDataProcessor:
         '당기순이익': r'(profitloss$|netincome$|netprofit$)',
     }
 
+    # DART API(fnlttSinglAcntAll) account_nm → 표준 항목명 매핑
+    DART_ACCOUNT_MAP = {
+        '매출액': ['매출액', '수익(매출액)', '영업수익'],
+        '매출원가': ['매출원가'],
+        '매출총이익': ['매출총이익'],
+        '판매비와관리비': ['판매비와관리비'],
+        '영업이익': ['영업이익', '영업이익(손실)'],
+        '당기순이익': ['당기순이익', '당기순이익(손실)', '반기순이익', '분기순이익'],
+    }
+
     def __init__(self, debug: bool=False):
         self.debug = debug
 
@@ -409,6 +419,43 @@ class FinancialDataProcessor:
         if a >= 100_000_000:        return f"{sign}{v/100_000_000:.0f}억원"
         if a >= 10_000:             return f"{sign}{v/10_000:.0f}만원"
         return f"{sign}{v:,.0f}원"
+
+    def process_dart_data(self, df: pd.DataFrame, company_name: str) -> pd.DataFrame | None:
+        """DART API(fnlttSinglAcntAll)가 반환한 원본 재무제표 → 표준 손익 요약 DataFrame"""
+        if df is None or df.empty:
+            return None
+        try:
+            is_df = df[df['sj_div'].isin(['IS', 'CIS'])].copy() if 'sj_div' in df.columns else df.copy()
+            if is_df.empty:
+                is_df = df.copy()
+
+            def parse_amount(v):
+                try:
+                    return float(str(v).replace(',', ''))
+                except Exception:
+                    return None
+
+            items = {}
+            for std, candidates in self.DART_ACCOUNT_MAP.items():
+                match = is_df[is_df['account_nm'].astype(str).str.strip().isin(candidates)]
+                if not match.empty:
+                    val = parse_amount(match.iloc[0].get('thstrm_amount'))
+                    if val is not None:
+                        items[std] = val
+
+            if '매출총이익' not in items and '매출액' in items and '매출원가' in items:
+                items['매출총이익'] = items['매출액'] - items['매출원가']
+            if '영업이익' not in items and '매출총이익' in items and '판매비와관리비' in items:
+                items['영업이익'] = items['매출총이익'] - items['판매비와관리비']
+
+            if not items:
+                st.warning(f"⚠️ {company_name}: 손익 항목을 찾지 못했습니다.")
+                return None
+
+            return self._build_statement(items, company_name)
+        except Exception as e:
+            st.warning(f"⚠️ {company_name} 데이터 처리 중 오류: {e}")
+            return None
 
     def merge_company_data(self, dataframes: list[pd.DataFrame]):
         if not dataframes: return pd.DataFrame()
