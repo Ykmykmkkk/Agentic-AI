@@ -18,7 +18,7 @@ st.set_page_config(
 import config
 from data.loader import DartAPICollector, QuarterlyDataCollector, SKNewsCollector
 from data.preprocess import SKFinancialDataProcessor, FinancialDataProcessor 
-from insight.gemini_api import GeminiInsightGenerator
+from insight.openai_api import OpenAIInsightGenerator
 
 # ✅ 수정된 import - util.export에서 모든 함수 가져오기
 from util.export import (
@@ -208,8 +208,8 @@ def main():
                     if q_data_list:
                         st.session_state.quarterly_data = pd.concat(q_data_list, ignore_index=True)
                         st.success(f"✅ 총 {len(q_data_list)}개 회사의 분기별 데이터 수집 완료")
-                    gemini = GeminiInsightGenerator(config.GEMINI_API_KEY)
-                    st.session_state.financial_insight = gemini.generate_financial_insight(st.session_state.financial_data)
+                    ai = OpenAIInsightGenerator(config.OPENAI_API_KEY)
+                    st.session_state.financial_insight = ai.generate_financial_insight(st.session_state.financial_data)
                 else:
                     st.error("데이터 수집에 실패했습니다.")
 
@@ -352,8 +352,8 @@ def main():
                         st.session_state.financial_data = st.session_state.manual_financial_data
                         
                         # AI 인사이트 생성
-                        gemini = GeminiInsightGenerator(config.GEMINI_API_KEY)
-                        st.session_state.financial_insight = gemini.generate_financial_insight(st.session_state.manual_financial_data)
+                        ai = OpenAIInsightGenerator(config.OPENAI_API_KEY)
+                        st.session_state.financial_insight = ai.generate_financial_insight(st.session_state.manual_financial_data)
                         
                         st.success("✅ 수동 업로드 분석이 완료되었습니다!")
                     else:
@@ -418,8 +418,8 @@ def main():
                 news_df = collector.collect_news()
                 st.session_state.news_data = news_df
                 if news_df is not None and not news_df.empty:
-                    gemini = GeminiInsightGenerator(config.GEMINI_API_KEY)
-                    st.session_state.news_insight = gemini.generate_news_insight(news_df)
+                    ai = OpenAIInsightGenerator(config.OPENAI_API_KEY)
+                    st.session_state.news_insight = ai.generate_news_insight(news_df)
                 else:
                     st.warning("관련 뉴스를 찾지 못했습니다.")
                     st.session_state.news_insight = None
@@ -438,8 +438,8 @@ def main():
         if st.button("🚀 통합 인사이트 생성", type="primary"):
             if st.session_state.get('financial_insight') and st.session_state.get('news_insight'):
                 with st.spinner("재무 인사이트와 뉴스 인사이트를 통합 분석 중..."):
-                    gemini = GeminiInsightGenerator(config.GEMINI_API_KEY)
-                    st.session_state.integrated_insight = gemini.generate_integrated_insight(
+                    ai = OpenAIInsightGenerator(config.OPENAI_API_KEY)
+                    st.session_state.integrated_insight = ai.generate_integrated_insight(
                         st.session_state.financial_insight,
                         st.session_state.news_insight
                     )

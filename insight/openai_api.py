@@ -4,33 +4,40 @@ import pandas as pd
 import config
 
 try:
-    import google.generativeai as genai
-    GEMINI_AVAILABLE = True
+    from openai import OpenAI
+    OPENAI_AVAILABLE = True
 except ImportError:
-    GEMINI_AVAILABLE = False
+    OPENAI_AVAILABLE = False
 
-class GeminiInsightGenerator:
-    """Gemini AI를 사용하여 분석 인사이트를 생성하는 클래스"""
+class OpenAIInsightGenerator:
+    """OpenAI를 사용하여 분석 인사이트를 생성하는 클래스"""
     def __init__(self, api_key):
-        if GEMINI_AVAILABLE and api_key:
+        if OPENAI_AVAILABLE and api_key:
             try:
-                genai.configure(api_key=api_key)
-                self.model = genai.GenerativeModel('gemini-1.5-flash')
+                self.client = OpenAI(api_key=api_key)
+                self.model = "gpt-4o-mini"
             except Exception as e:
-                st.error(f"Gemini 모델 초기화 실패: {e}")
-                self.model = None
+                st.error(f"OpenAI 클라이언트 초기화 실패: {e}")
+                self.client = None
         else:
-            self.model = None
+            self.client = None
+
+    def _generate(self, prompt):
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return response.choices[0].message.content
 
     def generate_financial_insight(self, financial_data):
         """재무데이터 → 경쟁사 분석 인사이트"""
-        if not self.model:
-            return "Gemini API를 사용할 수 없습니다. API 키를 확인해주세요."
-        
+        if not self.client:
+            return "OpenAI API를 사용할 수 없습니다. API 키를 확인해주세요."
+
         try:
             # 재무데이터를 텍스트로 변환
             data_str = financial_data.to_string() if hasattr(financial_data, 'to_string') else str(financial_data)
-            
+
             prompt = f"""
 다음은 SK에너지 중심의 재무데이터입니다:
 
@@ -109,23 +116,22 @@ class GeminiInsightGenerator:
 분석은 전문 컨설턴트 수준으로 해주시되, 실무자가 바로 보고 실행방안을 만들 수 있을 정도로 구체적이고 현실적인 조언을 포함해주세요.
 """
 
-            response = self.model.generate_content(prompt)
-            return response.text
-        
+            return self._generate(prompt)
+
         except Exception as e:
             error_msg = str(e)
             if "429" in error_msg and "quota" in error_msg.lower():
-                return "⚠️ Gemini API 할당량이 초과되었습니다. (하루 50회 제한)\n\n다음 중 하나를 선택해주세요:\n• 내일 다시 시도\n• 유료 API 키로 업그레이드\n• 수동으로 분석 진행"
+                return "⚠️ OpenAI API 할당량이 초과되었습니다.\n\n다음 중 하나를 선택해주세요:\n• 잠시 후 다시 시도\n• 결제 한도 확인\n• 수동으로 분석 진행"
             else:
                 return f"AI 인사이트 생성 중 오류가 발생했습니다: {e}"
 
     def generate_news_insight(self, news_df: pd.DataFrame):
         """여러 경쟁사 뉴스를 종합하여 하나의 통합된 벤치마킹 보고서를 생성합니다."""
-        if self.model is None: return "Gemini API를 사용할 수 없습니다."
+        if self.client is None: return "OpenAI API를 사용할 수 없습니다."
         if news_df is None or news_df.empty: return "분석할 뉴스 데이터가 없습니다."
 
         competitor_news = news_df[~news_df['회사'].astype(str).str.contains("SK", na=False)].head(10)
-        
+
         if competitor_news.empty:
             return "분석할 경쟁사의 최신 뉴스가 없습니다."
 
@@ -172,57 +178,56 @@ class GeminiInsightGenerator:
 
         최종 결과물은 바로 경영진에게 보고할 수 있는 수준의 명확하고 논리적인 보고서 형식이어야 합니다.
         """
-        
+
         try:
-            response = self.model.generate_content(prompt)
-            return response.text
+            return self._generate(prompt)
         except Exception as e:
             error_msg = str(e)
             if "429" in error_msg and "quota" in error_msg.lower():
-                return "⚠️ Gemini API 할당량이 초과되었습니다. (하루 50회 제한)\n\n다음 중 하나를 선택해주세요:\n• 내일 다시 시도\n• 유료 API 키로 업그레이드\n• 수동으로 분석 진행"
+                return "⚠️ OpenAI API 할당량이 초과되었습니다.\n\n다음 중 하나를 선택해주세요:\n• 잠시 후 다시 시도\n• 결제 한도 확인\n• 수동으로 분석 진행"
             else:
                 st.error(f"AI 뉴스 인사이트 생성 중 오류가 발생했습니다: {e}")
                 return "AI 인사이트 생성에 실패했습니다."
 
     def generate_integrated_insight(self, fin_insight_text: str, news_insight_text: str):
         """다트 기반 인사이트, 뉴스 벤치마킹 인사이트를 종합하여 통합 인사이트를 생성합니다."""
-        if not self.model:
-            return "Gemini API를 사용할 수 없습니다. API 키를 확인해주세요."
-        
+        if not self.client:
+            return "OpenAI API를 사용할 수 없습니다. API 키를 확인해주세요."
+
         fin_insight_text = fin_insight_text or "재무 인사이트 입력 없음"
         news_insight_text = news_insight_text or "뉴스/벤치마킹 인사이트 입력 없음"
 
         prompt = f"""
-당신은 SK에너지 전략기획팀의 애널리스트입니다.  
+당신은 SK에너지 전략기획팀의 애널리스트입니다.
 아래 두 가지 자료를 종합하여 **통합 인사이트와 손익 개선 전략**을 도출하세요.
 
-[자료 1: 다트 기반 재무 인사이트] 
+[자료 1: 다트 기반 재무 인사이트]
 {fin_insight_text}
 
 [자료 2: 뉴스 기반 벤치마킹 인사이트]
 {news_insight_text}
 
-[목표]  
-- 재무 지표를 중심으로 회사의 현황과 문제점을 진단  
-- 뉴스 인사이트를 활용해 경쟁사 벤치마킹 포인트 및 시장 기회 도출  
+[목표]
+- 재무 지표를 중심으로 회사의 현황과 문제점을 진단
+- 뉴스 인사이트를 활용해 경쟁사 벤치마킹 포인트 및 시장 기회 도출
 - 두 자료를 융합하여 실행 가능한 손익 개선 전략 제시
 
 [출력 항목]
-1. **종합 현황 진단**  
-   - 재무 인사이트 기반 현 재무상태  
-   - 뉴스 기반 시장 동향 및 경쟁사 주요 움직임  
+1. **종합 현황 진단**
+   - 재무 인사이트 기반 현 재무상태
+   - 뉴스 기반 시장 동향 및 경쟁사 주요 움직임
    - 두 자료를 결합한 시장 내 포지션 평가
 
-2. **핵심 문제점 & 기회요인**  
-   - 재무 데이터에서 도출된 주요 문제  
-   - 뉴스에서 파악된 기회 및 위협  
+2. **핵심 문제점 & 기회요인**
+   - 재무 데이터에서 도출된 주요 문제
+   - 뉴스에서 파악된 기회 및 위협
    - 두 자료를 융합한 전략적 시사점
 
-3. **손익 개선 전략 제안**  
-   - 단기(3~6개월): 즉시 실행 가능 전략, KPI, 예상 재무 효과  
+3. **손익 개선 전략 제안**
+   - 단기(3~6개월): 즉시 실행 가능 전략, KPI, 예상 재무 효과
    - 중장기(6~24개월): 구조 개선·사업 재편 전략, KPI, 예상 효과
 
-4. **핵심 손익개선 포인트 요약**  
+4. **핵심 손익개선 포인트 요약**
    | 구분 | 개선방안 | 예상 효과(정량) |
    |------|----------|----------------|
    | 매출 증대 | … | … |
@@ -231,16 +236,15 @@ class GeminiInsightGenerator:
    | 리스크 최소화 | … | … |
 
 [지침]
-- 분석 근거에 반드시 재무 수치·비율·추세를 포함  
-- 뉴스 인사이트는 실행 아이디어·벤치마킹 보조로 활용  
+- 분석 근거에 반드시 재무 수치·비율·추세를 포함
+- 뉴스 인사이트는 실행 아이디어·벤치마킹 보조로 활용
 - 모호한 표현 대신 구체적 실행안 제시
 """
         try:
-            response = self.model.generate_content(prompt)
-            return response.text
+            return self._generate(prompt)
         except Exception as e:
             error_msg = str(e)
             if "429" in error_msg and "quota" in error_msg.lower():
-                return "⚠️ Gemini API 할당량이 초과되었습니다. (하루 50회 제한)\n\n다음 중 하나를 선택해주세요:\n• 내일 다시 시도\n• 유료 API 키로 업그레이드\n• 수동으로 분석 진행"
+                return "⚠️ OpenAI API 할당량이 초과되었습니다.\n\n다음 중 하나를 선택해주세요:\n• 잠시 후 다시 시도\n• 결제 한도 확인\n• 수동으로 분석 진행"
             else:
                 return f"통합 인사이트 생성 중 오류가 발생했습니다: {e}"

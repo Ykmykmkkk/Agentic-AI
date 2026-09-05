@@ -22,11 +22,9 @@ def _get_secret(key, default=""):
 # 실제 키 값은 .streamlit/secrets.toml (로컬) 또는 환경변수로 주입하세요.
 # secrets.toml 예시:
 #   DART_API_KEY = "..."
-#   GEMINI_API_KEY = "..."
 #   OPENAI_API_KEY = "..."
 # ==========================
 DART_API_KEY = _get_secret("DART_API_KEY")
-GEMINI_API_KEY = _get_secret("GEMINI_API_KEY")
 OPENAI_API_KEY = _get_secret("OPENAI_API_KEY")
 
 # 구글시트 설정
