@@ -307,8 +307,13 @@ def add_financial_data_section(story, financial_data, quarterly_df, chart_figure
             for i, fig in enumerate(chart_figures, 1):
                 try:
                     img_buffer = io.BytesIO()
-                    fig.savefig(img_buffer, format='png', bbox_inches='tight')
-                    plt.close(fig)
+                    if hasattr(fig, 'savefig'):  # matplotlib Figure
+                        fig.savefig(img_buffer, format='png', bbox_inches='tight')
+                        plt.close(fig)
+                    elif hasattr(fig, 'to_image'):  # plotly Figure (kaleido 필요)
+                        img_buffer.write(fig.to_image(format='png', width=900, height=500))
+                    else:
+                        raise TypeError(f"지원하지 않는 차트 타입: {type(fig)}")
                     img_buffer.seek(0)
 
                     story.append(Paragraph(f"차트 {i}", BODY_STYLE))
