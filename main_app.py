@@ -20,13 +20,12 @@ from data.loader import DartAPICollector, QuarterlyDataCollector, SKNewsCollecto
 from data.preprocess import SKFinancialDataProcessor, FinancialDataProcessor 
 from insight.openai_api import OpenAIInsightGenerator
 
-# ✅ 수정된 import - util.export에서 모든 함수 가져오기
-from util.export import (
-    create_sk_bar_chart, create_sk_radar_chart, 
-    create_quarterly_trend_chart, create_gap_trend_chart, 
-    create_gap_analysis, create_gap_chart, PLOTLY_AVAILABLE,
-    create_excel_report, create_enhanced_pdf_report
+from visualization.charts import (
+    create_sk_bar_chart, create_sk_radar_chart,
+    create_quarterly_trend_chart, create_gap_trend_chart,
+    create_gap_analysis, create_gap_chart, PLOTLY_AVAILABLE
 )
+from util.export import create_excel_report, create_enhanced_pdf_report
 
 def initialize_session_state():
     session_vars = [
